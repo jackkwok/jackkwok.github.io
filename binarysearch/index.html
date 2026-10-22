@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Binary Search Visualizer</title>
+<style>
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --ink:#1d2433; --muted:#5d6779; --line:#c9d1de;
+  --orange:#ff9a2e; --orange-ink:#1d2433; --dim:#e6eaf1; --found:#2e9e6a; --arrow:#2447d6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+    --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+  --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:1.7rem;margin:0 0 4px}
+p.sub{margin:0 0 22px;color:var(--muted);max-width:60ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:26px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;font-size:1.1rem;width:120px;padding:8px 10px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+button{font:inherit;font-weight:600;padding:10px 20px;border-radius:8px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+button.secondary{background:transparent;color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--arrow);outline-offset:2px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:30px 14px 20px;overflow-x:auto}
+.row{display:flex;gap:6px;min-width:max-content;margin:0 auto;width:max-content}
+.cell{width:56px;flex:none;display:flex;flex-direction:column;align-items:center}
+.arrowslot{height:46px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;color:var(--arrow);font-weight:700;font-size:.75rem}
+.arrowslot svg{width:22px;height:26px;display:block}
+.arrowslot .lbl{visibility:hidden}
+.cell.mid .arrowslot .lbl{visibility:visible}
+.arrowslot svg{visibility:hidden}
+.cell.mid .arrowslot svg{visibility:visible}
+.box{width:100%;height:56px;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;background:var(--dim);color:var(--muted);transition:background .25s,color .25s,border-color .25s}
+.cell.active .box{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.cell.mid .box{border-color:var(--arrow);box-shadow:0 0 0 2px var(--arrow)}
+.cell.found .box{background:var(--found);border-color:var(--found);color:#fff}
+.idx{font-size:.75rem;color:var(--muted);margin-top:6px}
+.info{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.stat b{display:block;font-size:1.3rem}
+.stat span{font-size:.8rem;color:var(--muted)}
+#msg{margin-top:18px;padding:14px 16px;border-left:5px solid var(--orange);background:var(--surface);border-radius:6px;font-size:1.05rem;min-height:3.2em}
+#msg.ok{border-color:var(--found)} #msg.no{border-color:#d6453d}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+footer {
+  text-align: center;
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Binary search visualizer</h1>
+  <p class="sub">Enter a target, then press Step. Each step checks the middle of the orange search space and discards the half that cannot contain the target.</p>
+
+  <div class="controls">
+    <label>Target integer
+      <input id="target" type="number" step="1" inputmode="numeric" placeholder="e.g. 42">
+    </label>
+    <button id="step">Step</button>
+    <button id="reset" class="secondary">Reset</button>
+  </div>
+
+  <div class="stage"><div class="row" id="row" role="list" aria-label="Sorted list"></div></div>
+
+  <div class="legend">
+    <span><i style="background:var(--orange)"></i>Current search space</span>
+    <span><i style="background:var(--dim);border:1px solid var(--line)"></i>Eliminated</span>
+    <span><i style="background:var(--found)"></i>Found</span>
+  </div>
+
+  <div class="info">
+    <div class="stat"><b id="sLow">0</b><span>low index</span></div>
+    <div class="stat"><b id="sMid">–</b><span>mid index</span></div>
+    <div class="stat"><b id="sHigh">14</b><span>high index</span></div>
+    <div class="stat"><b id="sSteps">0</b><span>steps taken</span></div>
+  </div>
+
+  <div id="msg" role="status" aria-live="polite"></div>
+</main>
+
+<script>
+const N = 15;
+let list, low, high, mid, steps, done, started;
+
+const $ = id => document.getElementById(id);
+
+function makeList(){
+  const set = new Set();
+  while(set.size < N) set.add(Math.floor(Math.random()*99)+1);
+  return [...set].sort((a,b)=>a-b);
+}
+
+function build(){
+  const row = $('row');
+  row.innerHTML = '';
+  list.forEach((v,i)=>{
+    const c = document.createElement('div');
+    c.className = 'cell'; c.id = 'c'+i; c.setAttribute('role','listitem');
+    c.innerHTML = '<div class="arrowslot"><span class="lbl">mid</span>' +
+      '<svg viewBox="0 0 22 26" aria-hidden="true"><path d="M11 26 L1 12 H8 V0 H14 V12 H21 Z" fill="currentColor" transform="rotate(180 11 13)"/></svg></div>' +
+      '<div class="box">'+v+'</div><div class="idx">'+i+'</div>';
+    row.appendChild(c);
+  });
+}
+
+function render(foundIdx){
+  list.forEach((_,i)=>{
+    const c = $('c'+i);
+    c.classList.toggle('active', !done && i>=low && i<=high);
+    c.classList.toggle('mid', mid===i);
+    c.classList.toggle('found', foundIdx===i);
+  });
+  $('sLow').textContent = low;
+  $('sHigh').textContent = high;
+  $('sMid').textContent = mid===null ? '–' : mid;
+  $('sSteps').textContent = steps;
+}
+
+function say(text, cls){
+  const m = $('msg'); m.textContent = text; m.className = cls||'';
+}
+
+function reset(){
+  list = makeList(); low = 0; high = N-1; mid = Math.floor((N-1)/2); steps = 0; done = false;
+  build(); $('target').value = ''; $('step').disabled = false;
+  render(); say('The arrow marks the first midpoint. Enter a target integer and press Step. Tip: try a value from the list, and one that is not.');
+}
+
+function step(){
+  if(done) return;
+  const raw = $('target').value.trim();
+  if(raw === '' || !Number.isInteger(Number(raw))){
+    say('Enter a whole number as the target, then press Step.'); $('target').focus(); return;
+  }
+  const t = Number(raw);
+  $('target').disabled = true;
+  steps++;
+  const v = list[mid];
+  if(v === t){
+    done = true; $('step').disabled = true;
+    render(mid);
+    say('Found '+t+' at index '+mid+' after '+steps+' step'+(steps>1?'s':'')+'.', 'ok');
+    return;
+  }
+  let text;
+  if(v < t){
+    text = 'Middle is index '+mid+' (value '+v+'). '+v+' < '+t+', so the target must be to the right. Set low = '+(mid+1)+'.';
+    low = mid+1;
+  } else {
+    text = 'Middle is index '+mid+' (value '+v+'). '+v+' > '+t+', so the target must be to the left. Set high = '+(mid-1)+'.';
+    high = mid-1;
+  }
+  if(low > high){
+    done = true; $('step').disabled = true; mid = null;
+    render();
+    say(text+' The search space is now empty, so '+t+' is not in the list.', 'no');
+    return;
+  }
+  mid = Math.floor((low+high)/2);
+  render();
+  say(text);
+}
+
+$('step').addEventListener('click', step);
+$('reset').addEventListener('click', ()=>{ $('target').disabled = false; reset(); });
+$('target').addEventListener('keydown', e=>{ if(e.key==='Enter') step(); });
+$('target').disabled = false;
+reset();
+</script>
+</body>
+<footer>
+  &copy; 2026 Jack Kwok. All rights reserved.
+</footer>
+</html>
