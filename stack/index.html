@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stack Visualizer</title>
+<style>
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --ink:#1d2433; --muted:#5d6779; --line:#c9d1de;
+  --orange:#ff9a2e; --orange-ink:#1d2433; --dim:#e6eaf1; --found:#2e9e6a; --arrow:#2447d6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+    --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+  --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:1.7rem;margin:0 0 4px}
+p.sub{margin:0 0 22px;color:var(--muted);max-width:60ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:26px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;font-size:1.1rem;width:120px;padding:8px 10px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+button{font:inherit;font-weight:600;padding:10px 20px;border-radius:8px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+button.secondary{background:transparent;color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--arrow);outline-offset:2px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:30px 14px 20px;overflow-x:auto}
+.box{height:56px;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;background:var(--dim);color:var(--muted);transition:background .25s,color .25s,border-color .25s}
+.box.on{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.box.peek{border-color:var(--arrow);box-shadow:0 0 0 3px var(--arrow)}
+.idx{font-size:.75rem;color:var(--muted)}
+.tag{color:var(--arrow);font-weight:700;font-size:.8rem}
+.info{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.stat b{display:block;font-size:1.3rem}
+.stat span{font-size:.8rem;color:var(--muted)}
+#msg{margin-top:18px;padding:14px 16px;border-left:5px solid var(--orange);background:var(--surface);border-radius:6px;font-size:1.05rem;min-height:3.2em}
+#msg.ok{border-color:var(--found)} #msg.no{border-color:#d6453d}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+footer{text-align:center;color:var(--muted);padding:0 0 28px}
+.stack{display:flex;flex-direction:column-reverse;gap:6px;width:max-content;margin:0 auto}
+.srow{display:flex;align-items:center;gap:12px}
+.srow .idx{width:22px;text-align:right}
+.srow .box{width:160px}
+.srow .tag{width:64px;visibility:hidden}
+.srow.top .tag{visibility:visible}
+.base{width:240px;height:6px;background:var(--ink);border-radius:3px;margin:8px auto 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Stack visualizer</h1>
+  <p class="sub">A stack is last in, first out. Push adds a value on top, pop removes the top value, and peek shows the top value without removing it.</p>
+
+  <div class="controls">
+    <label>Value
+      <input id="val" type="number" step="1" inputmode="numeric" placeholder="e.g. 7">
+    </label>
+    <button id="push">Push</button>
+    <button id="pop">Pop</button>
+    <button id="peek">Peek</button>
+    <button id="reset" class="secondary">Reset</button>
+  </div>
+
+  <div class="stage"><div class="stack" id="stack" role="list" aria-label="Stack, top item last"></div><div class="base"></div></div>
+
+  <div class="legend">
+    <span><i style="background:var(--orange)"></i>Item on the stack</span>
+    <span><i style="background:var(--dim);border:1px solid var(--line)"></i>Empty slot</span>
+    <span><i style="border:2px solid var(--arrow)"></i>Peeked</span>
+  </div>
+
+  <div class="info">
+    <div class="stat"><b id="sSize">0</b><span>size</span></div>
+    <div class="stat"><b id="sTop">–</b><span>top index</span></div>
+    <div class="stat"><b id="sCap">8</b><span>capacity</span></div>
+    <div class="stat"><b id="sOps">0</b><span>operations</span></div>
+  </div>
+
+  <div id="msg" role="status" aria-live="polite"></div>
+</main>
+<footer>&copy; 2026 Jack Kwok. All rights reserved.</footer>
+
+<script>
+const CAP = 8;
+let items, ops, peeking;
+const $ = id => document.getElementById(id);
+
+function render(){
+  const s = $('stack'); s.innerHTML = '';
+  for(let i=0;i<CAP;i++){
+    const filled = i < items.length, isTop = i === items.length-1;
+    const r = document.createElement('div');
+    r.className = 'srow' + (isTop ? ' top' : ''); r.setAttribute('role','listitem');
+    r.innerHTML = '<span class="idx">'+i+'</span><div class="box'+(filled?' on':'')+(isTop&&peeking?' peek':'')+'">'+(filled?items[i]:'')+'</div><span class="tag">&larr; top</span>';
+    s.appendChild(r);
+  }
+  $('sSize').textContent = items.length;
+  $('sTop').textContent = items.length ? items.length-1 : '–';
+  $('sOps').textContent = ops;
+  $('push').disabled = items.length >= CAP;
+  $('pop').disabled = $('peek').disabled = items.length === 0;
+}
+function say(t,c){ const m=$('msg'); m.textContent=t; m.className=c||''; }
+
+function push(){
+  const raw = $('val').value.trim();
+  if(raw === '' || !Number.isInteger(Number(raw))){ say('Enter a whole number to push.'); $('val').focus(); return; }
+  if(items.length >= CAP){ say('Stack overflow: the stack is full (capacity '+CAP+'). Pop a value first.','no'); return; }
+  items.push(Number(raw)); ops++; peeking = false;
+  render(); say('Pushed '+raw+' onto the top at index '+(items.length-1)+'.');
+  $('val').value = ''; $('val').focus();
+}
+function pop(){
+  if(!items.length){ say('Stack underflow: the stack is empty, nothing to pop.','no'); return; }
+  const v = items.pop(); ops++; peeking = false;
+  render(); say('Popped '+v+' from the top. '+(items.length ? 'The new top is '+items[items.length-1]+'.' : 'The stack is now empty.'),'ok');
+}
+function peek(){
+  if(!items.length){ say('The stack is empty, so there is no top value to peek at.','no'); return; }
+  ops++; peeking = true; render();
+  say('Peek: the top value is '+items[items.length-1]+'. Nothing was removed.','ok');
+}
+function reset(){
+  items = []; ops = 0; peeking = false; $('val').value = '';
+  render(); say('The stack is empty. Enter a whole number and press Push.');
+}
+
+$('push').addEventListener('click', push);
+$('pop').addEventListener('click', pop);
+$('peek').addEventListener('click', peek);
+$('reset').addEventListener('click', reset);
+$('val').addEventListener('keydown', e=>{ if(e.key==='Enter') push(); });
+reset();
+</script>
+</body>
+</html>
