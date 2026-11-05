@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hash Table Visualizer</title>
+<style>
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --ink:#1d2433; --muted:#5d6779; --line:#c9d1de;
+  --orange:#ff9a2e; --orange-ink:#1d2433; --dim:#e6eaf1; --found:#2e9e6a; --arrow:#2447d6; --warn:#d6453d; --cmp:#d61f9a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+    --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff; --warn:#ff7a72; --cmp:#ff6ad0;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141a26; --surface:#1c2434; --ink:#eaeef6; --muted:#9aa5ba; --line:#37425a;
+  --orange:#ff9a2e; --orange-ink:#1a1204; --dim:#252f44; --found:#43c78c; --arrow:#7da0ff; --warn:#ff7a72; --cmp:#ff6ad0;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:1.7rem;margin:0 0 4px}
+h2{font-size:1rem;margin:0 0 8px}
+p.sub{margin:0 0 22px;color:var(--muted);max-width:62ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:26px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;font-size:1.1rem;width:120px;padding:8px 10px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+input#val{width:170px}
+button{font:inherit;font-weight:600;padding:10px 20px;border-radius:8px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+button.secondary{background:transparent;color:var(--ink)}
+button:disabled,input:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--arrow);outline-offset:2px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 14px;overflow-x:auto}
+.brow{display:flex;align-items:center;gap:6px;min-width:max-content;margin-bottom:10px;min-height:56px}
+.brow:last-child{margin-bottom:0}
+.slot{width:56px;height:56px;flex:none;border:2px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;background:var(--dim);color:var(--muted);transition:background .25s,color .25s,border-color .25s}
+.slot.active{background:var(--orange);color:var(--orange-ink);border-color:var(--orange)}
+.node{width:96px;flex:none;border:2px solid var(--line);border-radius:8px;background:var(--dim);text-align:center;padding:4px 6px;line-height:1.25;transition:background .25s,border-color .25s}
+.node b{display:block;font-size:1.1rem}
+.node span{display:block;font-size:.8rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node.cmp{border-color:var(--cmp);box-shadow:0 0 0 2px var(--cmp)}
+.node.new{background:var(--found);border-color:var(--found);color:#fff}
+.node.new span{color:#fff}
+.node.hit{background:var(--found);border-color:var(--found);color:#fff}
+.node.hit span{color:#fff}
+.arr{width:28px;height:14px;flex:none;color:var(--arrow)}
+.nul{color:var(--muted);font-size:.85rem;font-family:Consolas,Menlo,monospace}
+.tag{font-size:.75rem;color:var(--warn);font-weight:700;margin-left:6px;white-space:nowrap}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.info{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.stat b{display:block;font-size:1.3rem}
+.stat span{font-size:.8rem;color:var(--muted)}
+#msg{margin:0 0 14px;padding:14px 16px;border-left:5px solid var(--orange);background:var(--surface);border-radius:6px;font-size:1.05rem;min-height:3.2em}
+#msg.ok{border-color:var(--found)} #msg.no{border-color:var(--warn)} #msg.col{border-color:var(--warn)}
+.code{margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+.code summary{cursor:pointer;font-weight:600;border-radius:4px}
+.code[open] summary{margin-bottom:10px}
+.code p{margin:0 0 8px;font-size:.85rem;color:var(--muted)}
+pre{margin:0;font:.9rem/1.6 Consolas,Menlo,monospace;min-width:max-content}
+pre span{display:block;padding:0 8px;border-radius:4px}
+pre span.hl{background:var(--orange);color:var(--orange-ink)}
+footer{text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <h1>Hash table visualizer</h1>
+  <p class="sub">A hash table stores key-value pairs. A hash function turns the key into a bucket number (here: <b>key % 7</b>). Insert a pair and watch each step play out automatically. Keys that land in the same bucket are chained in a linked list.</p>
+
+  <div class="controls">
+    <label>Key (integer)
+      <input id="key" type="number" step="1" min="0" inputmode="numeric" placeholder="e.g. 12">
+    </label>
+    <label>Value (string)
+      <input id="val" type="text" maxlength="12" placeholder="e.g. pear">
+    </label>
+    <button id="ins">Insert</button>
+    <button id="find" class="secondary">Find</button>
+    <button id="reset" class="secondary">Reset</button>
+  </div>
+
+  <div id="msg" role="status" aria-live="polite"></div>
+
+  <div class="stage"><div id="table" role="list" aria-label="Hash table buckets"></div></div>
+
+  <div class="legend">
+    <span><i style="background:var(--orange)"></i>Bucket chosen by hash</span>
+    <span><i style="background:transparent;border:2px solid var(--cmp)"></i>Node being compared</span>
+    <span><i style="background:var(--found)"></i>Inserted / found</span>
+  </div>
+
+  <div class="info">
+    <div class="stat"><b id="sKey">–</b><span>key</span></div>
+    <div class="stat"><b id="sHash">–</b><span>hash calculation</span></div>
+    <div class="stat"><b id="sItems">0</b><span>items stored</span></div>
+    <div class="stat"><b id="sCol">0</b><span>collisions so far</span></div>
+  </div>
+
+  <details class="code">
+    <summary>C++ code behind the scenes</summary>
+    <p>The C++ behind the scenes. Highlighted lines match the current step, which plays automatically (Find uses the same loop).</p>
+<pre id="code"><span>int hash(int key) { return key % 7; }</span>
+<span>void insert(int key, string value) {</span>
+<span>  int i = hash(key);</span>
+<span>  Node* n = table[i];</span>
+<span>  while (n != nullptr) {</span>
+<span>    if (n->key == key) { n->value = value; return; }</span>
+<span>    n = n->next;</span>
+<span>  }</span>
+<span>  table[i] = new Node{key, value, table[i]};</span>
+<span>}</span></pre>
+  </details>
+</main>
+
+<script>
+const SIZE = 7, DELAY = 1000;
+let table, op, items, collisions, timer;
+const $ = id => document.getElementById(id);
+const hash = k => k % SIZE;
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ARROW = '<svg class="arr" viewBox="0 0 28 14" aria-hidden="true"><path d="M0 7H22M16 1l7 6-7 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+function say(text, cls){ const m = $('msg'); m.textContent = text; m.className = cls || ''; }
+function hl(lines){ [...$('code').children].forEach((s,i)=>s.classList.toggle('hl', lines.includes(i))); }
+function busy(){ return op && !op.done; }
+
+function render(){
+  $('table').innerHTML = table.map((chain,i)=>{
+    const active = op && op.idx === i;
+    let h = '<div class="brow" role="listitem"><div class="slot'+(active?' active':'')+'">'+i+'</div>';
+    if(!chain.length) h += ARROW.replace('class="arr"','class="arr" style="visibility:hidden"') + '<span class="nul">nullptr</span>';
+    chain.forEach(n=>{
+      let c = 'node';
+      if(op && op.cmp === n) c += ' cmp';
+      if(op && op.flash === n) c += op.type === 'find' ? ' hit' : ' new';
+      h += ARROW + '<div class="'+c+'"><b>'+n.k+'</b><span>'+esc(n.v)+'</span></div>';
+    });
+    if(chain.length){ h += ARROW + '<span class="nul">nullptr</span>'; }
+    if(chain.length > 1) h += '<span class="tag">chain of '+chain.length+'</span>';
+    return h + '</div>';
+  }).join('');
+  $('sKey').textContent = op ? op.k : '–';
+  $('sHash').textContent = op ? op.k+' % '+SIZE+' = '+op.idx : '–';
+  $('sItems').textContent = items;
+  $('sCol').textContent = collisions;
+  ['ins','find','key','val'].forEach(id => $(id).disabled = busy());
+}
+
+function reset(){
+  clearTimeout(timer);
+  table = Array.from({length:SIZE}, ()=>[]); op = null; items = 0; collisions = 0;
+  $('key').value = ''; $('val').value = '';
+  hl([]); render();
+  say('The table has 7 buckets (0 to 6), all empty (nullptr). Enter an integer key and a string value, then press Insert. Tip: to see a collision, insert two keys with the same remainder, such as 5 and 12.');
+}
+
+function begin(type){
+  const k = $('key').value.trim(), v = $('val').value.trim();
+  if(k === '' || !Number.isInteger(Number(k)) || Number(k) < 0){
+    say('Enter a whole number of 0 or more as the key.'); $('key').focus(); return;
+  }
+  if(type === 'insert' && v === ''){ say('Enter a string value to store with the key.'); $('val').focus(); return; }
+  const key = Number(k);
+  op = {type, k:key, v, idx:hash(key), phase:'bucket', pos:0, cmp:null, flash:null, done:false};
+  hl([0,2]); render();
+  say('Hash step: '+key+' % '+SIZE+' = '+op.idx+'. Key '+key+' belongs in bucket '+op.idx+'.');
+  timer = setTimeout(step, DELAY);
+}
+
+function finish(text, cls, node){
+  op.done = true; op.flash = node || null; say(text, cls); render();
+}
+
+function step(){
+  advance();
+  if(busy()) timer = setTimeout(step, DELAY);
+}
+
+function advance(){
+  if(!busy()) return;
+  const ch = table[op.idx], i = op.idx, k = op.k;
+  if(op.phase === 'bucket'){
+    hl([3]);
+    if(!ch.length){
+      if(op.type === 'find'){ hl([3]); return finish('Bucket '+i+' is empty (nullptr), so key '+k+' is not in the table.', 'no'); }
+      op.phase = 'place';
+      say('Bucket '+i+' is empty (nullptr), so there is no collision. A new node can go straight in.');
+    } else {
+      op.phase = 'walk'; op.pos = 0;
+      say(op.type === 'insert'
+        ? 'Bucket '+i+' already holds '+ch.length+' node'+(ch.length>1?'s':'')+'. First, walk the linked list to check whether key '+k+' is already stored.'
+        : 'Bucket '+i+' is not empty. Walk the linked list looking for key '+k+'.', op.type === 'insert' ? 'col' : '');
+    }
+    render(); return;
+  }
+  if(op.phase === 'walk'){
+    const n = ch[op.pos]; op.cmp = n; hl([4,5]);
+    if(n.k === k){
+      if(op.type === 'find') return finish('Found key '+k+' with value "'+n.v+'" after checking '+(op.pos+1)+' node'+(op.pos>0?'s':'')+'.', 'ok', n);
+      hl([5]); n.v = op.v;
+      return finish('Key '+k+' is already stored, so its value is updated to "'+op.v+'". No new node is needed.', 'ok', n);
+    }
+    if(op.pos + 1 < ch.length){
+      hl([4,5,6]); op.pos++;
+      say(n.k+' ≠ '+k+'. Move to the next node using the next pointer.');
+    } else if(op.type === 'find'){
+      return finish(n.k+' ≠ '+k+' and next is nullptr, the end of the chain. Key '+k+' is not in the table.', 'no');
+    } else {
+      hl([4,7]); op.phase = 'place';
+      say(n.k+' ≠ '+k+' and next is nullptr. Key '+k+' is new, so it will be chained into this bucket.', 'col');
+    }
+    render(); return;
+  }
+  if(op.phase === 'place'){
+    hl([8]);
+    const node = {k, v:op.v}, hadChain = ch.length > 0;
+    op.cmp = null; ch.unshift(node); items++;
+    if(hadChain){
+      collisions++;
+      return finish('Collision handled! Key '+k+' hashed to bucket '+i+', which was already used. The new node is placed first and its next pointer points to the old first node, forming a linked list.', 'col', node);
+    }
+    finish('Inserted key '+k+' with value "'+op.v+'" into empty bucket '+i+'. The bucket now points to the new node.', 'ok', node);
+  }
+}
+
+$('ins').addEventListener('click', ()=>begin('insert'));
+$('find').addEventListener('click', ()=>begin('find'));
+$('reset').addEventListener('click', reset);
+['key','val'].forEach(id => $(id).addEventListener('keydown', e=>{ if(e.key === 'Enter') begin('insert'); }));
+reset();
+</script>
+<footer>
+  &copy; 2026 Jack Kwok. All rights reserved.
+</footer>
+</body>
+</html>
