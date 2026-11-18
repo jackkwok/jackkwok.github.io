@@ -62,11 +62,6 @@ vector<Book> findByAuthor(const vector<Book>& books, const string& author) {
     return {};
 }
 
-// BONUS TODO: Return a pointer to the first book with the given title,
-//             or nullptr if there is no match.
-const Book* findByTitle(const vector<Book>& books, const string& title) {
-    return nullptr;
-}
 
 int main() {
     Date today = {11, 19, 2026};
@@ -91,11 +86,6 @@ int main() {
 
     // TODO 5: Call findByAuthor for an author with multiple books and
     //         print the results with printAll.
-
-
-    // BONUS: Use findByTitle to look up one title that exists and one
-    //        that doesn't. Print the book if found, otherwise a message.
-
 
     return 0;
 }
